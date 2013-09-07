@@ -122,10 +122,11 @@ def parse(tmpl):
         elif mode == TOKEN_BLOCK:
             bits = smart_split(tok)
             tag_name = bits.pop(0)
+            # Does this match the close tag name of the current Top of Stack?
             if tag_name == stack[-1].close_tag:
                 stack.pop()
                 continue
-            # Pars bits for kwargs
+            # Parse bits for kwargs
             tag_class = TAGS[tag_name]
             tag = tag_class(tmpl, *args, **kwargs)
             if tag_class.is_block:
