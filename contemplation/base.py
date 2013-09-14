@@ -30,6 +30,9 @@ TOKEN_MAPPING = {
 TAGS = {}
 FILTERS = {}
 
+class TemplateSyntaxError(Exception):
+    pass
+
 class VariableDoesNotExist(Exception):
     pass
 
@@ -121,6 +124,11 @@ class Variable(object):
         self.variable = None
 
         match = var_re.match(raw)
+        if not match:
+            raise TemplateSyntaxError('Could not parse variable: %r' % raw)
+        # XXX Need to ensure we parsed it _all_
+        if match.end() != len(raw):
+            raise TemplateSyntaxError('Could not parse variable: %r' % raw)
         num, fnum, var, string = match.groups()
         if num is not None:
             self.literal = num
