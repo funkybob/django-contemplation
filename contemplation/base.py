@@ -45,17 +45,22 @@ def smart_split(string):
 class Template(object):
     def __init__(self, source):
         self.source = source
-        self.nodelist = parse(self)
+        self.root = parse(self)
 
+    def render(self, context):
+        return ''.join(
+            node.render(context)
+            for node in self.root.nodelist
+        )
 
 def tokenise(template):
     '''A generator which yields (type, content) pairs'''
     upto = 0
     for m in tag_re.finditer(template):
         start, end = m.span()
-        if last < start:
-            yield (TOKEN_TEXT, template[last:start])
-        last = end
+        if upto < start:
+            yield (TOKEN_TEXT, template[upto:start])
+        upto = end
         tag, var, comment = m.groups()
         if tag is not None:
             yield (TOKEN_BLOCK, tag)
@@ -66,16 +71,16 @@ def tokenise(template):
                     m = stream.next()
                     if m.group('tag') == marker:
                         break
-                yield (TOKEN_TEXT, template[last:m.start()])
+                yield (TOKEN_TEXT, template[upto:m.start()])
                 yield (TOKEN_BLOCK, m.group('tag'))
-                last = m.end()
+                upto = m.end()
             # XXX Handle verbatim tag and translations
         elif var is not None:
             yield (TOKEN_VAR, var)
         else:
             yield Comment(comment)
-    if last < len(template):
-        yield (TOKEN_TEXT, template[last:])
+    if upto < len(template):
+        yield (TOKEN_TEXT, template[upto:])
 
 class Node(object):
     def __init__(self, tmpl):
@@ -96,6 +101,15 @@ class RootNode(BlockNode):
     '''A special block node to be the root of the template.'''
     pass
 
+class VarNode(Node):
+    def __init__(self, tmpl, token):
+        # XXX Expression
+        self.token = Variable(token)
+        super(VarNode, self).__init__(tmpl)
+
+    def render(self, context):
+        return unicode(self.token.resolve(context))
+
 class TextNode(Node):
     def __init__(self, tmpl, content):
         super(TextNode, self).__init__(tmpl)
@@ -108,7 +122,7 @@ var_re = re.compile(r'''
     ^
     (?P<int>\d+)|
     (?P<float>\d+\.\d+)|
-    (?P<var>[\w\.]+)
+    (?P<var>[\w\.]+)|
     (?P<string>"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*')
     $
 ''', re.VERBOSE)
@@ -157,6 +171,12 @@ class Variable(object):
                 current = current()
         return current
 
+class FilterExpression(object):
+    '''
+    Parse a filter expression in either a VarNode or a BlockNode's tokens.
+    '''
+    def __init__(self, token):
+        pass
 
 class Parser(object):
     '''Django-style recursive, stateful Parser'''
@@ -254,7 +274,7 @@ def parse_bits(bits):
 def parse(tmpl):
     stream = tokenise(tmpl.source)
     stack = [
-        RootNode(),
+        RootNode(tmpl),
     ]
 
     for mode, tok in stream:
