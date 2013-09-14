@@ -247,10 +247,10 @@ def parse_bits(bits):
         if key in kwargs:
             raise TemplateSyntaxError("Duplicate keyword values passed: %s" % key)
         val = Variable(val)
-        try:
-            val = val.resolve({})
-        except VariableDoesNotExist:
-            pass
+        #try:
+        #    val = val.resolve({})
+        #except VariableDoesNotExist:
+        #    pass
         kwargs[key] = val
         del bits[:1]
 
