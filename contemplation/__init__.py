@@ -1,3 +1,3 @@
 
-from .base import Template
+from .base import Template, TemplateSyntaxError, VariableDoesNotExist
 from .context import Context
