@@ -1,13 +1,19 @@
 
-from .base import TAGS, Node, Variable
+from .base import register, Node, Variable
 from .utils import smart_split
 
+from datetime import datetime
 from itertools import cycle
 
-# XXX CycleNode
-# XXX FilterNode
-# XXX FirstOfNode
+# XXX class AutoEscapeControlNode(Node):
+# XXX class CommentNode(Node):
+# XXX class CsrfTokenNode(Node):
+# XXX class CycleNode(Node):
+# XXX class DebugNode(Node):
+# XXX class FilterNode(Node):
+# XXX class FirstOfNode(Node):
 
+@register.tag('for')
 class ForNode(Node):
     '''
     Repeating loop.
@@ -16,10 +22,8 @@ class ForNode(Node):
     '''
     close_tag = 'endfor'
     raw_token = True
-    is_block = True
-    def __init__(self, tmpl, token):
-        super(ForNode, self).__init__(tmpl)
-        self.tmpl = tmpl
+    def __init__(self, token):
+        super(ForNode, self).__init__()
         bits = smart_split(token)
         bits.pop(0)
 
@@ -42,7 +46,46 @@ class ForNode(Node):
                 output.append(self.nodelist.render(context))
         return ''.join(output)
 
-TAGS['for'] = ForNode
+# XXX class IfChangedNode(Node):
+# XXX class IfEqualNode(Node):
+# XXX class IfNode(Node):
+# XXX class RegroupNode(Node):
+# XXX class SsiNode(Node):
+# XXX class LoadNode(Node):
+# XXX class NowNode(Node):
+
+@register.tag('now')
+class NowNode(Node):
+    def __init__(self, format_string):
+        self.format_string = format_string
+
+    def render(self, context):
+        return datetime.now().strftime(self.format_string.resolve(context))
+
+# XXX class SpacelessNode(Node):
+# XXX class TemplateTagNode(Node):
+# XXX class URLNode(Node):
+# XXX class VerbatimNode(Node):
+# XXX class WidthRatioNode(Node):
+# XXX class WithNode(Node):
+
+@register.tag('with')
+class WithNode(Node):
+    close_tag = 'endwith'
+    def __init__(self, **kwargs):
+        super(WithNode, self).__init__()
+        self.kwargs = kwargs
+
+    def render(self, context):
+        new_data = {
+            key: val.resolve(context)
+            for key, val in self.kwargs.items()
+        }
+        with context.push(**new_data):
+            return self.nodelist.render(context)
+
+# XXX class TemplateLiteral(Literal):
+# XXX class TemplateIfParser(IfParser):
 
 class LoopNode(Node):
     '''

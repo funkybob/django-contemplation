@@ -23,7 +23,10 @@ class RenderTests(unittest.TestCase):
         ('{% foo }}', {}, '{% foo }}'),
 
         # For tag
-        ('{% for x in y %}{{ x }}{% endfor %}', {'x': 'BAD', 'y': range(3)}, '012')
+        ('{% for x in y %}{{ x }}{% endfor %}', {'x': 'BAD', 'y': range(3)}, '012'),
+        ('{% for a b in z %}{{ a }} {{ b }}{% endfor %}', {'z': ['AB', 'CD']}, 'A BC D'),
+
+        ('{% with a=7 %}{{ a }}{% endwith %}', {'a': 'BAD'}, '7'),
     )
 
     def test_good(self):
