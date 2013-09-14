@@ -78,7 +78,7 @@ def tokenise(template):
         elif var is not None:
             yield (TOKEN_VAR, var)
         else:
-            yield Comment(comment)
+            yield (TOKEN_COMMENT, comment)
     if upto < len(template):
         yield (TOKEN_TEXT, template[upto:])
 
@@ -221,6 +221,7 @@ class Parser(object):
                 tag = tag_class(self.tmpl, *args, **kwargs)
                 if tag.is_block:
                     tag.nodelist = self.parse([tag.close_tag])
+            # last case is comment, which we ignore
 
         if parse_until:
             raise ValueError('Unbalanced tags: %r' % parse_until)
