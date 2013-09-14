@@ -8,7 +8,6 @@ Major differences:
 
 TODO:
 - filters as chains of partials
-- tags marked with takes_context, is_block, etc...
 '''
 
 from .utils import smart_split
@@ -40,10 +39,8 @@ class Template(object):
         self.root = parse(self)
 
     def render(self, context):
-        return ''.join(
-            node.render(context)
-            for node in self.root.nodelist
-        )
+        return self.root.nodelist.render(context)
+
 
 def tokenise(template):
     '''A generator which yields (type, content) pairs'''
@@ -74,26 +71,21 @@ def tokenise(template):
     if upto < len(template):
         yield (TOKEN_TEXT, template[upto:])
 
+class Nodelist(list):
+    '''A list that can render as a node.'''
+    def render(self, context):
+        return ''.join(
+            node.render(context)
+            for node in self
+        )
+
 class Node(object):
     close_tag = None
     raw_token = False
     def __init__(self, tmpl):
         self.tmpl = tmpl
+        self.nodelist = Nodelist()
 
-class BlockNode(Node):
-    def __init__(self, *args, **kwargs):
-        super(BlockNode, self).__init__(*args, **kwargs)
-        self.nodelist = []
-
-    def render(self, context):
-        return ''.join([
-            node.render(context)
-            for node in self.nodelise
-        ])
-
-class RootNode(BlockNode):
-    '''A special block node to be the root of the template.'''
-    pass
 
 class VarNode(Node):
     def __init__(self, tmpl, token):
@@ -213,7 +205,7 @@ class Parser(object):
                 # XXX Parse args/kwargs
                 tag_class = TAGS[tag_name]
                 tag = tag_class(self.tmpl, *args, **kwargs)
-                if tag.is_block:
+                if tag.close_tag:
                     tag.nodelist = self.parse([tag.close_tag])
             # last case is comment, which we ignore
 
@@ -269,7 +261,7 @@ def parse_bits(bits):
 def parse(tmpl):
     stream = tokenise(tmpl.source)
     stack = [
-        RootNode(tmpl),
+        Node(tmpl)
     ]
 
     for mode, tok in stream:
@@ -293,7 +285,8 @@ def parse(tmpl):
                 # Parse bits for args, kwargs
                 args, kwargs, varname = parse_bits(bits)
                 tag = tag_class(tmpl, *args, **kwargs)
-            if tag_class.is_block:
+            stack[-1].nodelist.append(tag)
+            if tag_class.close_tag:
                 stack.append(tag)
 
     assert len(stack) == 1, "Unbalanced block nodes: %r" % stack
