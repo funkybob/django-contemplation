@@ -15,6 +15,12 @@ class RenderTests(unittest.TestCase):
         # Variable lookups
         ('{{ foo.bar }}', {'foo': {'bar': 'baz'}}, 'baz'),
         ('{{ foo.1 }}', {'foo': ['a', 'b']}, 'b'),
+        ('{{ foo.title }}', {'foo': 'something'}, 'Something'),
+        # XXX multi-level lookups
+        # Comments
+        ('abc{# comment #}def', {}, 'abcdef'),
+        # Invalid syntax
+        ('{% foo }}', {}, '{% foo }}'),
     )
 
     def test_good(self):
