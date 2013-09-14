@@ -82,23 +82,22 @@ class Nodelist(list):
 class Node(object):
     close_tag = None
     raw_token = False
-    def __init__(self, tmpl):
-        self.tmpl = tmpl
-        self.nodelist = Nodelist()
-
+    def __init__(self):
+        if self.close_tag:
+            self.nodelist = Nodelist()
 
 class VarNode(Node):
-    def __init__(self, tmpl, token):
+    def __init__(self, token):
         # XXX Expression
+        super(VarNode, self).__init__()
         self.token = Variable(token)
-        super(VarNode, self).__init__(tmpl)
 
     def render(self, context):
         return unicode(self.token.resolve(context))
 
 class TextNode(Node):
-    def __init__(self, tmpl, content):
-        super(TextNode, self).__init__(tmpl)
+    def __init__(self, content):
+        super(TextNode, self).__init__()
         self.content = content
 
     def render(self, context):
@@ -261,15 +260,15 @@ def parse_bits(bits):
 def parse(tmpl):
     stream = tokenise(tmpl.source)
     stack = [
-        Node(tmpl)
+        Node()
     ]
 
     for mode, tok in stream:
         if mode == TOKEN_TEXT:
-            stack[-1].nodelist.append(TextNode(tmpl, tok))
+            stack[-1].nodelist.append(TextNode(tok))
 
         elif mode == TOKEN_VAR:
-            stack[-1].nodelist.append(VarNode(tmpl, tok))
+            stack[-1].nodelist.append(VarNode(tok))
 
         elif mode == TOKEN_BLOCK:
             bits = smart_split(tok)
@@ -280,17 +279,31 @@ def parse(tmpl):
                 continue
             tag_class = TAGS[tag_name]
             if tag_class.raw_token:
-                tag = tag_class(tmpl, tok)
+                tag = tag_class(tok)
             else:
                 # Parse bits for args, kwargs
                 args, kwargs, varname = parse_bits(bits)
-                tag = tag_class(tmpl, *args, **kwargs)
+                tag = tag_class(*args, **kwargs)
             stack[-1].nodelist.append(tag)
             if tag_class.close_tag:
                 stack.append(tag)
 
     assert len(stack) == 1, "Unbalanced block nodes: %r" % stack
     return stack[0]
+
+class Registry(object):
+    def tag(self, name, tag_class=None):
+        def _register_tag(tag_class):
+            TAGS[name] = tag_class
+        if tag_class is None:
+            return _register_tag
+        else:
+            return _registre_tag(tag_class)
+
+    def filter(self, name, filter_func):
+        FILTERS[name] = filter_func
+
+register = Registy()
 
 from . import defaulttags
 #from . import defaultfilters
