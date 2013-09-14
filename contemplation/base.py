@@ -25,9 +25,9 @@ TOKEN_MAPPING = {
     TOKEN_COMMENT: 'Comment',
 }
 
-class Token(object):
-    def __init__(self, content):
-        self.content = content
+
+class VariableDoesNotExist(Exception):
+    pass
 
 # From django's smart_split
 split_re = re.compile(r"""
