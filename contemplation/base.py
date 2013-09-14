@@ -10,6 +10,9 @@ TODO:
 - filters as chains of partials
 - tags marked with takes_context, is_block, etc...
 '''
+
+from .utils import smart_split
+
 import re
 
 tag_re = re.compile(r'{%\s*(?P<tag>.+?)\s*%}|{{\s*(?P<var>.+?)\s*}}|{#\s*(?P<comment>.+?)\s*#}')
@@ -25,22 +28,11 @@ TOKEN_MAPPING = {
     TOKEN_COMMENT: 'Comment',
 }
 
+TAGS = {}
+FILTERS = {}
 
 class VariableDoesNotExist(Exception):
     pass
-
-# From django's smart_split
-split_re = re.compile(r"""
-    ((?:
-        [^\s'"]*
-        (?:
-            (?:"(?:[^"\\]|\\.)*" | '(?:[^'\\]|\\.)*')
-            [^\s'"]*
-        )+
-    ) | \S+)
-""", re.VERBOSE)
-def smart_split(string):
-    return split_re.finditer(string)
 
 class Template(object):
     def __init__(self, source):
@@ -83,6 +75,8 @@ def tokenise(template):
         yield (TOKEN_TEXT, template[upto:])
 
 class Node(object):
+    close_tag = None
+    raw_token = False
     def __init__(self, tmpl):
         self.tmpl = tmpl
 
@@ -304,3 +298,6 @@ def parse(tmpl):
 
     assert len(stack) == 1, "Unbalanced block nodes: %r" % stack
     return stack[0]
+
+from . import defaulttags
+#from . import defaultfilters
