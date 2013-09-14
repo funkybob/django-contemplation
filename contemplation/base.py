@@ -104,6 +104,59 @@ class TextNode(Node):
     def render(self, context):
         return self.content
 
+var_re = re.compile(r'''
+    ^
+    (?P<int>\d+)|
+    (?P<float>\d+\.\d+)|
+    (?P<var>[\w\.]+)
+    (?P<string>"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*')
+    $
+''', re.VERBOSE)
+class Variable(object):
+    '''
+    Wrapper to hold a variable from parsing, awaiting resolution at
+    render time.
+    '''
+    def __init__(self, raw):
+        self.raw = raw
+        self.literal = None
+        self.variable = None
+
+        match = var_re.match(raw)
+        num, fnum, var, string = match.groups()
+        if num is not None:
+            self.literal = num
+        elif fnum is not None:
+            self.literal = fnum
+        elif string:
+            self.literal = string[1:-1]
+        elif var:
+            self.variable = var
+
+    def resolve(self, context):
+        if self.literal is not None:
+            return self.literal
+        # dotted lookup
+        bits = self.variable.split('.')
+        current = context
+        for bit in bits:
+            try: # dict lookup
+                current = current[bit]
+            except (TypeError, AttributeError, KeyError, ValueError):
+                try: # attr lookup
+                    # Add check for base level
+                    current = getattr(current, bit)
+                except (TypeError, AttributeError):
+                    try: # list lookup
+                        current = current[int(bit)]
+                    except (IndexError, ValueError, KeyError, TypeError):
+                        raise VariableDoesNotExist(
+                            "Failed lookup for [%r] in %r" % (bit, current)
+                        )
+            if callable(current):
+                current = current()
+        return current
+
 
 class Parser(object):
     '''Django-style recursive, stateful Parser'''
@@ -153,6 +206,51 @@ class Parser(object):
             raise ValueError('Unbalanced tags: %r' % parse_until)
         return nodelist
 
+kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
+
+def parse_bits(bits):
+    '''
+    Take a list of smart-split values, and convert to a list of args and kwargs.
+    Returns (args, kwargs, varname) where varname is the "as foo" name, or None.
+    '''
+    if len(bits) > 2 and bits[-2] == 'as':
+        varname = bits[-1]
+        del bits[-2:]
+    else:
+        varname = None
+    args = []
+    while bits:
+        m = kwarg_re.match(bits[0])
+        # If there was a foo= part, end args parsing
+        if m.group(1):
+            break
+        val = Variable(m.group(2))
+        # See if it's a constant we can resolve now
+        try:
+            val = val.resolve({})
+        except VariableDoesNotExist:
+            pass
+        args.append(val)
+        del bits[:1]
+
+    kwargs = {}
+    while bits:
+        m = kwarg_re.match(bits[0])
+        if not m.group(1):
+            raise TemplateSyntaxError("Found positional arguments after keyword arguments!")
+        key, val = m.groups()
+        if key in kwargs:
+            raise TemplateSyntaxError("Duplicate keyword values passed: %s" % key)
+        val = Variable(val)
+        try:
+            val = val.resolve({})
+        except VariableDoesNotExist:
+            pass
+        kwargs[key] = val
+        del bits[:1]
+
+    return args, kwargs, varname
+
 def parse(tmpl):
     stream = tokenise(tmpl.source)
     stack = [
@@ -173,9 +271,13 @@ def parse(tmpl):
             if tag_name == stack[-1].close_tag:
                 stack.pop()
                 continue
-            # Parse bits for kwargs
             tag_class = TAGS[tag_name]
-            tag = tag_class(tmpl, *args, **kwargs)
+            if tag_class.raw_token:
+                tag = tag_class(tmpl, tok)
+            else:
+                # Parse bits for args, kwargs
+                args, kwargs, varname = parse_bits(bits)
+                tag = tag_class(tmpl, *args, **kwargs)
             if tag_class.is_block:
                 stack.append(tag)
 
