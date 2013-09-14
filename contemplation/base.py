@@ -83,8 +83,7 @@ class Node(object):
     close_tag = None
     raw_token = False
     def __init__(self):
-        if self.close_tag:
-            self.nodelist = Nodelist()
+        self.nodelist = Nodelist()
 
 class VarNode(Node):
     def __init__(self, token):
@@ -295,6 +294,7 @@ class Registry(object):
     def tag(self, name, tag_class=None):
         def _register_tag(tag_class):
             TAGS[name] = tag_class
+            return tag_class
         if tag_class is None:
             return _register_tag
         else:
@@ -303,7 +303,7 @@ class Registry(object):
     def filter(self, name, filter_func):
         FILTERS[name] = filter_func
 
-register = Registy()
+register = Registry()
 
 from . import defaulttags
 #from . import defaultfilters
