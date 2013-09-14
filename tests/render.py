@@ -21,6 +21,9 @@ class RenderTests(unittest.TestCase):
         ('abc{# comment #}def', {}, 'abcdef'),
         # Invalid syntax
         ('{% foo }}', {}, '{% foo }}'),
+
+        # For tag
+        ('{% for x in y %}{{ x }}{% endfor %}', {'x': 'BAD', 'y': range(3)}, '012')
     )
 
     def test_good(self):
