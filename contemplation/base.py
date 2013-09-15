@@ -106,12 +106,12 @@ class TextNode(Node):
         return self.content
 
 var_re = re.compile(r'''
-    ^
+    ^(?:
     (?P<int>\d+)|
     (?P<float>\d+\.\d+)|
-    (?P<var>[\w\.]+)|
+    (?P<var>\w+(?:\.\w+)*)|
     (?P<string>"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*')
-    $
+    )$
 ''', re.VERBOSE)
 class Variable(object):
     '''
