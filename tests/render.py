@@ -304,7 +304,7 @@ class RenderTests(unittest.TestCase):
             with self.assertRaises(exc):
                 t = Template(tmpl)
                 c = Context(ctx)
-                o = t.render(ctx)
+                o = t.render(c)
 
 if __name__ == '__main__':
     unittest.main()
