@@ -95,7 +95,11 @@ class VarNode(Node):
         self.token = Variable(token)
 
     def render(self, context):
-        return unicode(self.token.resolve(context))
+        try:
+            value = self.token.resolve(context)
+        except VariableDoesNotExist:
+            value = context.invalid
+        return unicode(value)
 
 class TextNode(Node):
     def __init__(self, content):
@@ -160,8 +164,12 @@ class Variable(object):
                             "Failed lookup for [%r] in %r" % (bit, current)
                         )
             if callable(current):
-                current = current()
+                try:
+                    current = current()
+                except TypeError:
+                    return context.invalid
         return current
+
 
 class FilterExpression(object):
     '''
@@ -170,54 +178,6 @@ class FilterExpression(object):
     def __init__(self, token):
         pass
 
-class Parser(object):
-    '''Django-style recursive, stateful Parser'''
-    def __init__(self, tmpl):
-        self.tmpl = tmpl
-        self.stream = tokenise(tmpl.source)
-        self.buffer = []
-
-    def next(self):
-        try:
-            return self.buffer.pop()
-        except IndexError:
-            return self.stream.next()
-
-    def push(self, token):
-        '''Push a token back into the stream'''
-        self.buffer.append(token)
-
-    def parse(self, parse_until=None):
-        nodelist = []
-        if parse_until is None:
-            parse_until = []
-
-        for mode, tok in self:
-            if mode == TOKEN_TEXT:
-                nodelist.append(TextNode(self.tmpl, tok))
-
-            elif mode == TOKEN_VAR:
-                nodelist.append(VarNode(self.tmpl, tok))
-
-            elif mode == TOKEN_BLOCK:
-                tag_name = tok.split()[0]
-
-                if tag_name in parse_until:
-                    self.push((mode, tok))
-                    return nodelist
-
-                # XXX We could insert a check here for Django-style tags?
-
-                # XXX Parse args/kwargs
-                tag_class = TAGS[tag_name]
-                tag = tag_class(self.tmpl, *args, **kwargs)
-                if tag.close_tag:
-                    tag.nodelist = self.parse([tag.close_tag])
-            # last case is comment, which we ignore
-
-        if parse_until:
-            raise ValueError('Unbalanced tags: %r' % parse_until)
-        return nodelist
 
 kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
 
