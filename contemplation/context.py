@@ -19,7 +19,8 @@ class ContextDict(dict):
         self.context.pop()
 
 class Context(ChainMap):
-    def __init__(self, default=None):
+    def __init__(self, default=None, invalid=''):
+        self.invalid = invalid
         super(Context, self).__init__(dict(BUILTINS), default or {})
 
     def push(self, *args, **kwargs):
