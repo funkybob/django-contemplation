@@ -27,6 +27,7 @@ class ForNode(Node):
         bits = smart_split(token)
         bits.pop(0)
 
+        # XXX use smarter parsing -- commas
         sp = bits.index('in')
         self.args = bits[:sp]
         self.source = Variable(bits[sp+1])
@@ -87,6 +88,25 @@ class WithNode(Node):
 # XXX class TemplateLiteral(Literal):
 # XXX class TemplateIfParser(IfParser):
 
+class LoopObject(object):
+    '''
+    An object to cycle values under control.
+    '''
+    def __init__(self, *values):
+        self.values = values
+        self.index = 0
+
+    def __unicode__(self):
+        return self.values[self.index]
+
+    def step(self):
+        self.index = (self.index + 1) % len(self.values)
+
+    def next(self):
+        self.step()
+        return unicode(self)
+
+@register.tag('loop')
 class LoopNode(Node):
     '''
     Add a cycle() of values to the context
@@ -99,7 +119,7 @@ class LoopNode(Node):
         self.values = values
 
     def render(self, context):
-        context[self.name.resolve(context)] = cycle([
+        context[self.name.resolve(context)] = LoopObject(*[
             value.resolve(context)
             for value in values
         ])
