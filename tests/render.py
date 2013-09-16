@@ -117,8 +117,8 @@ class RenderTests(unittest.TestCase):
         # regression test for ticket #12554
         # make sure a silent_variable_failure Exception is supressed
         # on dictionary and attribute lookup
-        ("{{ a.b }}", {'a': SilentGetItemClass()}, ('', 'INVALID')),
-        ("{{ a.b }}", {'a': SilentAttrClass()}, ('', 'INVALID')),
+        ("{{ a.b }}", {'a': SilentGetItemClass()}, 'INVALID'),
+        ("{{ a.b }}", {'a': SilentAttrClass()}, 'INVALID'),
 
         # Something that starts like a number but has an extra lookup works as a lookup.
         ("{{ 1.2.3 }}", {"1": {"2": {"3": "d"}}}, "d"),
@@ -145,13 +145,13 @@ class RenderTests(unittest.TestCase):
         ("{{ var.1 }}", {"var": ["first item", "second item"]}, "second item"),
 
         # Fail silently when the list index is out of range.
-        ("{{ var.5 }}", {"var": ["first item", "second item"]}, ("", "INVALID")),
+        ("{{ var.5 }}", {"var": ["first item", "second item"]}, "INVALID"),
 
         # Fail silently when the variable is not a subscriptable object.
-        ("{{ var.1 }}", {"var": None}, ("", "INVALID")),
+        ("{{ var.1 }}", {"var": None}, "INVALID"),
 
         # Fail silently when variable is a dict without the specified key.
-        ("{{ var.1 }}", {"var": {}}, ("", "INVALID")),
+        ("{{ var.1 }}", {"var": {}}, "INVALID"),
 
         # Dictionary lookup wins out when dict's key is a string.
         ("{{ var.1 }}", {"var": {'1': "hello"}}, "hello"),
