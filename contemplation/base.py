@@ -10,7 +10,7 @@ TODO:
 - filters as chains of partials
 '''
 
-from .utils import smart_split
+from .utils import smart_split, unescape_string_literal
 
 import re
 
@@ -139,7 +139,7 @@ class Variable(object):
         elif fnum is not None:
             self.literal = fnum
         elif string:
-            self.literal = string[1:-1]
+            self.literal = unescape_string_literal(string)
         elif var:
             self.variable = var
 
