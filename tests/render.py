@@ -5,6 +5,9 @@ import unittest
 
 from contemplation import Template, Context, TemplateSyntaxError
 
+class SomeException(Exception):
+    silent_variable_failure = True
+
 class SomeClass:
     def __init__(self):
         self.otherclass = OtherClass()
