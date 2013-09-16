@@ -27,18 +27,33 @@ class ForNode(Node):
         bits = smart_split(token)
         bits.pop(0)
 
-        # XXX use smarter parsing -- commas
-        sp = bits.index('in')
-        self.args = bits[:sp]
-        self.source = Variable(bits[sp+1])
-        assert len(bits) == sp + 2
+        if len(bits) < 3:
+            raise TemplateSyntaxError("'for' statement should have at least four words: %s" % token)
+
+        self.is_reversed = bits[-1] == 'reversed'
+        if self.is_reversed:
+            bits.pop()
+
+        source = Variable(bits.pop())
+        if bits.pop() != 'in':
+            raise TemplateSyntaxError("'for' statement should use the format 'for x in y': %s" % token)
+
+        loop_vars = re.split(r' *, *', ' '.join(bits))
+        for var in loop_vars:
+            if not var or ' ' in var:
+                raise TemplateSyntaxError("'for' tag received an invalid argument: %s" % token)
+
+        self.args = loop_vars
 
     def render(self, context):
         source = self.source.resolve(context)
+        if self.is_reversed():
+            source = reversed(source)
         output = []
+        unpack = len(self.args) > 1
         with context.push():
             for values in source:
-                if len(self.args) == 1:
+                if unpack:
                     context.maps[0][self.args[0]] = values
                 else:
                     context.maps[0].update(
