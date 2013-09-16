@@ -1,9 +1,10 @@
 
-from .base import register, Node, Variable
+from .base import register, Node, Variable, TemplateSyntaxError
 from .utils import smart_split
 
 from datetime import datetime
 from itertools import cycle
+import re
 
 # XXX class AutoEscapeControlNode(Node):
 # XXX class CommentNode(Node):
