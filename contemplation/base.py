@@ -12,6 +12,7 @@ TODO:
 
 from .utils import smart_split, unescape_string_literal
 
+import ast
 import re
 
 tag_re = re.compile(r'{%\s*(?P<tag>.+?)\s*%}|{{\s*(?P<var>.+?)\s*}}|{#\s*(?P<comment>.+?)\s*#}')
@@ -149,35 +150,92 @@ class Variable(object):
         # dotted lookup
         bits = self.variable.split('.')
         current = context
-        for bit in bits:
-            try: # dict lookup
-                current = current[bit]
-            except (TypeError, AttributeError, KeyError, ValueError):
-                try: # attr lookup
-                    # Add check for base level
-                    current = getattr(current, bit)
-                except (TypeError, AttributeError):
-                    try: # list lookup
-                        current = current[int(bit)]
-                    except (IndexError, ValueError, KeyError, TypeError):
-                        raise VariableDoesNotExist(
-                            "Failed lookup for [%r] in %r" % (bit, current)
-                        )
-            if callable(current):
-                try:
-                    current = current()
-                except TypeError:
-                    return context.invalid
+        try: # catch for silent failure
+            for bit in bits:
+                try: # dict lookup
+                    current = current[bit]
+                except (TypeError, AttributeError, KeyError, ValueError):
+                    try: # attr lookup
+                        # Add check for base level
+                        current = getattr(current, bit)
+                    except (TypeError, AttributeError):
+                        try: # list lookup
+                            current = current[int(bit)]
+                        except (IndexError, ValueError, KeyError, TypeError):
+                            raise VariableDoesNotExist(
+                                "Failed lookup for [%r] in %r" % (bit, current)
+                            )
+                if callable(current):
+                    try:
+                        current = current()
+                    except TypeError:
+                        return context.invalid
+        except Exception as e:
+            if getattr(e, 'silent_variable_failure', False):
+                current = context.invalid
+            else:
+                raise
         return current
 
 
 class FilterExpression(object):
     '''
-    Parse a filter expression in either a VarNode or a BlockNode's tokens.
+    Parse a variable followed by an optional list of filters and their
+    arguments.
     '''
     def __init__(self, token):
-        pass
+        self.token = token
+        self.variable = None
+        self.constant = None
+        self.filters = None
 
+        code = ast.parse(token, mode='eval')
+
+        if isinstance(code.body, ast.Name):
+            self.variable = code.body.id
+        elif isinstance(code.body, ast.Str):
+            self.constant = code.body.s
+        elif isinstance(code.body, ast.Num):
+            self.constant = code.body.n
+        elif isinstance(code.body, ast.BinOp) and isinstance(code.body.op, ast.BitOr):
+            self.filters = self._resolve_binops(code.body)
+
+    def _resolve_binops(self, node):
+        '''
+        Translate Python AST into what we want it to mean.
+        - BinOp(BitOr) become calls
+
+        Expression(body=BinOp(
+            left=BinOp(
+                left=BinOp(
+                    left=Name(id='a', ctx=Load()),
+                    op=BitOr(),
+                    right=Name(id='b', ctx=Load())
+                ),
+                op=BitOr(),
+                right=Name(id='c', ctx=Load())
+            ),
+            op=BitOr(),
+            right=Name(id='d', ctx=Load())
+        ))
+
+        Would become:
+        Expression(body=Call(
+            func=Name(id='d', ctx=Load()), args=[
+                Call(func=Name(id='c', ctx=Load()), args=[
+                    Call(func=Name(id='b', ctx=Load()), args=[
+                        Name(id='a', ctx=Load()),
+                    ], keywords=[], starargs=None, kwargs=None),
+                ], keywords=[], starargs=None, kwargs=None),
+            ], keywords=[], starargs=None, kwargs=None)
+        )
+        '''
+        # right is always "simple"
+        # left could be compound OR
+        if isinstance(node.left, ast.BinOp) and isinstance(node.left.op, ast.BitOr):
+            filters.append(self._resolve_binops(node.left))
+        else:
+            pass
 
 kwarg_re = re.compile(r"(?:(\w+)=)?(.+)")
 
