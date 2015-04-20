@@ -1,3 +1,4 @@
+This project has stalled ... however, [knights-templater](https://github.com/funkybob/knights-templater) is more or less production quality now!
 
 Contemplation
 =============
